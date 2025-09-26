@@ -34,14 +34,14 @@ export default function ConfessionForm({ onClose }: { onClose: () => void }) {
 
   const handleSubmit = async () => {
     if (!title.trim() || !body.trim()) {
-      toast.error("😺✨ Meow!", {
+      toast.error("😺", {
         description: "Don’t leave your secrets empty… Fill in both fields 💖🐾",
       });
       return;
     }
 
     if (cooldown > 0) {
-      toast.error("⏳ Slow down!", {
+      toast.error("Slow down!", {
         description: `Please wait ${Math.ceil(
           cooldown / 60000
         )} minutes before confessing again.`,
@@ -55,6 +55,9 @@ export default function ConfessionForm({ onClose }: { onClose: () => void }) {
       setCooldown(COOLDOWN_MS);
       setTitle("");
       setBody("");
+      toast.success("submitted!", {
+        description: "yay!!!",
+      });
       onClose();
     }
   };
