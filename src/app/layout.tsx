@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import ConfessionForm from "@/components/confession-form";
+import ConfessionTrigger from "@/components/confession-trigger";
+import { SubmitToaster } from "@/components/Toaster";
+import { ConfessionsProvider } from "@/providers/confessions-provider";
+import { Providers } from "@/providers/query-provider";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({
@@ -24,9 +27,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
-        {/* client component rendered inside the server layout */}
-        <ConfessionForm />
+        <Providers>
+          <ConfessionsProvider>
+            {children}
+            <SubmitToaster />
+            <ConfessionTrigger />
+          </ConfessionsProvider>
+        </Providers>
       </body>
     </html>
   );
