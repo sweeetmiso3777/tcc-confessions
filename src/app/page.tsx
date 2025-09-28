@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { Virtuoso } from "react-virtuoso";
 import { useConfessionsContext } from "@/providers/confessions-provider";
 import { ConfessionCard } from "@/components/confession-card";
 import ConfessionForm from "@/components/confession-form";
@@ -10,6 +11,12 @@ import DotGrid from "@/components/DotGrid";
 export default function Home() {
   const { confessions, loading } = useConfessionsContext();
   const [showForm, setShowForm] = useState(false);
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -55,19 +62,27 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="flex flex-col gap-6">
-            {confessions.map((confession, index) => (
-              <ConfessionCard
-                key={confession.id}
-                id={confession.id}
-                title={confession.title ?? "Untitled"}
-                body={confession.body ?? ""}
-                created_at={confession.created_at ?? ""}
-                upvotes={confession.upvotes ?? 0}
-                downvotes={confession.downvotes ?? 0}
-                index={index}
-              />
-            ))}
+          {/* Virtuoso container for confessions */}
+          <div className="flex-1 w-full border-4 border-black rounded-lg shadow-[8px_8px_0_0_rgba(0,0,0,1)] bg-white/70 backdrop-blur-sm overflow-hidden">
+            <Virtuoso
+              data={confessions}
+              itemContent={(index, confession) => (
+                <div className="p-4 border-b-2 border-gray-300 last:border-b-0">
+                  <ConfessionCard
+                    key={confession.id}
+                    id={confession.id}
+                    title={confession.title ?? "Untitled"}
+                    body={confession.body ?? ""}
+                    created_at={confession.created_at ?? ""}
+                    upvotes={confession.upvotes ?? 0}
+                    downvotes={confession.downvotes ?? 0}
+                    index={index}
+                  />
+                </div>
+              )}
+              style={{ height: "60vh" }} // Adjust height as needed
+              overscan={200} // Improves scroll performance
+            />
           </div>
         </main>
 
