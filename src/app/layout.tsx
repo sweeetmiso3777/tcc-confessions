@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import ConfessionTrigger from "@/components/confession-trigger";
 import { SubmitToaster } from "@/components/Toaster";
 import { ConfessionsProvider } from "@/providers/confessions-provider";
 import { Providers } from "@/providers/query-provider";
@@ -31,7 +30,6 @@ export default function RootLayout({
           <ConfessionsProvider>
             {children}
             <SubmitToaster />
-            <ConfessionTrigger />
           </ConfessionsProvider>
         </Providers>
       </body>
