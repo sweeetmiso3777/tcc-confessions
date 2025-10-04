@@ -15,7 +15,7 @@ export interface Confession {
 
 const CACHE_KEY = "confessions_cache";
 const LIMIT_KEY = "confession_limit";
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const ONE_DAY_MS = 8 * 60 * 60 * 1000; // its actually 8 hours but too lazy to change any varaibles here im sleepy
 
 export function useConfessions() {
   const [confessions, setConfessions] = useState<Confession[]>([]);
