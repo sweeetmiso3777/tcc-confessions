@@ -15,7 +15,8 @@ export interface Confession {
 
 const CACHE_KEY = "confessions_cache";
 const LIMIT_KEY = "confession_limit";
-const ONE_DAY_MS = 8 * 60 * 60 * 1000; // its actually 8 hours but too lazy to change any varaibles here im sleepy
+const VOTE_KEY = "confession_votes";
+const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000; 
 
 export function useConfessions() {
   const [confessions, setConfessions] = useState<Confession[]>([]);
@@ -23,28 +24,29 @@ export function useConfessions() {
   const [error, setError] = useState<string | null>(null);
   const voteTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
 
+
   useEffect(() => {
     (async () => {
       const cached = await getItem<Confession[]>(CACHE_KEY);
-      if (cached && Array.isArray(cached)) setConfessions(cached);
+      if (cached && Array.isArray(cached)) {
+        setConfessions(cached);
+        console.log("loaded cached confessions from indexeddb");
+      }
       fetchConfessions();
     })();
   }, []);
 
+
   useEffect(() => {
     (async () => {
       const lastConfession = await getItem<{ lastConfessionTime: number }>(LIMIT_KEY);
-      if (lastConfession) {
-        console.log("found previous confession record");
-      }
+      if (lastConfession) console.log("🕒 Previous confession found in IndexedDB");
     })();
   }, []);
 
-
+ 
   useEffect(() => {
-    if (confessions.length > 0) {
-      setItem(CACHE_KEY, confessions);
-    }
+    if (confessions.length > 0) setItem(CACHE_KEY, confessions);
   }, [confessions]);
 
   const fetchConfessions = async () => {
@@ -67,19 +69,20 @@ export function useConfessions() {
     setLoading(false);
   };
 
-
+  // 8 hour checkerererer
   const canPostNow = async () => {
     const record = await getItem<{ lastConfessionTime: number }>(LIMIT_KEY);
     if (!record) return true;
 
     const elapsed = Date.now() - record.lastConfessionTime;
-    return elapsed >= ONE_DAY_MS;
+    return elapsed >= EIGHT_HOURS_MS;
   };
 
+  // --- Submit a confession (with cooldown check) ---
   const submitConfession = async (title: string, body: string) => {
     const allowed = await canPostNow();
     if (!allowed) {
-      setError("sorry part kas a lang kada adlaw");
+      setError("you can only confess once every 8 hours :3");
       return null;
     }
 
@@ -96,26 +99,50 @@ export function useConfessions() {
       setConfessions((prev) => [newConfession, ...prev]);
       await setItem(CACHE_KEY, [newConfession, ...confessions]);
       await setItem(LIMIT_KEY, { lastConfessionTime: Date.now() });
+      console.log("confession submitted and cooldown saved");
       return newConfession;
     }
   };
 
-  const handleVote = (id: string, type: "upvotes" | "downvotes") => {
+  //handle upvote/downvote 
+  const handleVote = async (id: string, type: "upvotes" | "downvotes") => {
+    const votes = (await getItem<Record<string, "up" | "down">>(VOTE_KEY)) || {};
+    const previousVote = votes[id];
+
+    if (previousVote === "up" && type === "upvotes") return;
+    if (previousVote === "down" && type === "downvotes") return;
+
     setConfessions((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, [type]: (c[type] ?? 0) + 1 } : c
-      )
+      prev.map((c) => {
+        if (c.id !== id) return c;
+        let up = c.upvotes ?? 0;
+        let down = c.downvotes ?? 0;
+
+       
+        if (previousVote === "up") up -= 1;
+        else if (previousVote === "down") down -= 1;
+
+     
+        if (type === "upvotes") up += 1;
+        else down += 1;
+
+        return { ...c, upvotes: up, downvotes: down };
+      })
     );
 
-    if (voteTimeouts.current[id]) clearTimeout(voteTimeouts.current[id]);
+   
+    votes[id] = type === "upvotes" ? "up" : "down";
+    await setItem(VOTE_KEY, votes);
 
+    
+    if (voteTimeouts.current[id]) clearTimeout(voteTimeouts.current[id]);
     voteTimeouts.current[id] = setTimeout(async () => {
       const target = confessions.find((c) => c.id === id);
       if (!target) return;
 
       const { data, error } = await supabase
         .from("confessions")
-        .update({ [type]: (target[type] ?? 0) + 1 })
+        .update({ upvotes: target.upvotes, downvotes: target.downvotes })
         .eq("id", id)
         .select();
 

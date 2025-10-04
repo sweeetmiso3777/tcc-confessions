@@ -1,10 +1,7 @@
 "use client";
-import { useState } from "react";
 import { useConfessions, type Confession } from "@/hooks/useConfessions";
 import { ArrowBigDown, ArrowBigUp } from "lucide-react";
 import { motion } from "framer-motion";
-
-const VOTE_COOLDOWN_MS = 10_000; // 10 seconds
 
 interface ConfessionCardProps extends Confession {
   index?: number;
@@ -25,21 +22,9 @@ export function ConfessionCard({
   const upvotes = confession?.upvotes ?? 0;
   const downvotes = confession?.downvotes ?? 0;
 
-  // cooldown state
-  const [cooldownUntil, setCooldownUntil] = useState<number>(0);
-
-  const isOnCooldown = Date.now() < cooldownUntil;
-
   const handleVote = (type: "up" | "down") => {
-    if (isOnCooldown) return;
-
-    if (type === "up") {
-      upvoteConfession(id);
-    } else {
-      downvoteConfession(id);
-    }
-
-    setCooldownUntil(Date.now() + VOTE_COOLDOWN_MS);
+    if (type === "up") upvoteConfession(id);
+    else downvoteConfession(id);
   };
 
   return (
@@ -66,12 +51,7 @@ export function ConfessionCard({
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => handleVote("up")}
-            disabled={isOnCooldown}
-            className={`flex items-center gap-2 px-3 py-1 transition ${
-              isOnCooldown
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-green-300 hover:bg-green-400"
-            }`}
+            className="flex items-center gap-2 px-3 py-1 bg-green-300 hover:bg-green-400 transition"
           >
             <ArrowBigUp className="w-5 h-5" />
             {upvotes}
@@ -81,28 +61,13 @@ export function ConfessionCard({
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => handleVote("down")}
-            disabled={isOnCooldown}
-            className={`flex items-center gap-2 px-3 py-1 transition ${
-              isOnCooldown
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-red-300 hover:bg-red-400"
-            }`}
+            className="flex items-center gap-2 px-3 py-1 bg-red-300 hover:bg-red-400 transition"
           >
             <ArrowBigDown className="w-5 h-5" />
             {downvotes}
           </motion.button>
         </div>
       </div>
-
-      {isOnCooldown && (
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-xs text-gray-600 mt-1"
-        >
-          Thank you!
-        </motion.p>
-      )}
     </motion.div>
   );
 }
