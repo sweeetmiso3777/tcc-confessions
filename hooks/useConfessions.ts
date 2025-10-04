@@ -24,7 +24,6 @@ export function useConfessions() {
   const [error, setError] = useState<string | null>(null);
   const voteTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
 
-
   useEffect(() => {
     (async () => {
       const cached = await getItem<Confession[]>(CACHE_KEY);
@@ -36,40 +35,23 @@ export function useConfessions() {
     })();
   }, []);
 
-
-  useEffect(() => {
-    (async () => {
-      const lastConfession = await getItem<{ lastConfessionTime: number }>(LIMIT_KEY);
-      if (lastConfession) console.log("🕒 Previous confession found in IndexedDB");
-    })();
-  }, []);
-
- 
   useEffect(() => {
     if (confessions.length > 0) setItem(CACHE_KEY, confessions);
   }, [confessions]);
 
   const fetchConfessions = async () => {
     setLoading(true);
-    let query = supabase.from("confessions").select("*");
-
-    if (confessions.length > 0) {
-      const latest = confessions[0].created_at;
-      if (latest) query = query.gt("created_at", latest);
-    }
-
-    const { data, error } = await query.order("created_at", {
-      ascending: false,
-    });
+    const { data, error } = await supabase
+      .from("confessions")
+      .select("*")
+      .order("created_at", { ascending: false });
 
     if (error) setError(error.message);
-    else if (data && data.length > 0)
-      setConfessions((prev) => [...(data as Confession[]), ...prev]);
+    else if (data) setConfessions(data as Confession[]);
 
     setLoading(false);
   };
 
-  // 8 hour checkerererer
   const canPostNow = async () => {
     const record = await getItem<{ lastConfessionTime: number }>(LIMIT_KEY);
     if (!record) return true;
@@ -78,7 +60,6 @@ export function useConfessions() {
     return elapsed >= EIGHT_HOURS_MS;
   };
 
-  // --- Submit a confession (with cooldown check) ---
   const submitConfession = async (title: string, body: string) => {
     const allowed = await canPostNow();
     if (!allowed) {
@@ -97,61 +78,114 @@ export function useConfessions() {
     } else {
       const newConfession = data?.[0] as Confession;
       setConfessions((prev) => [newConfession, ...prev]);
-      await setItem(CACHE_KEY, [newConfession, ...confessions]);
       await setItem(LIMIT_KEY, { lastConfessionTime: Date.now() });
-      console.log("confession submitted and cooldown saved");
       return newConfession;
     }
   };
 
-  //handle upvote/downvote 
   const handleVote = async (id: string, type: "upvotes" | "downvotes") => {
     const votes = (await getItem<Record<string, "up" | "down">>(VOTE_KEY)) || {};
     const previousVote = votes[id];
 
-    if (previousVote === "up" && type === "upvotes") return;
-    if (previousVote === "down" && type === "downvotes") return;
+    // If clicking the same vote again, remove the vote
+    if ((previousVote === "up" && type === "upvotes") || 
+        (previousVote === "down" && type === "downvotes")) {
+      // Remove the vote
+      delete votes[id];
+      await setItem(VOTE_KEY, votes);
+      
+      // Optimistic update - revert the vote
+      setConfessions(prev => prev.map(confession => 
+        confession.id === id 
+          ? { 
+              ...confession, 
+              upvotes: type === "upvotes" ? Math.max(0, confession.upvotes - 1) : confession.upvotes,
+              downvotes: type === "downvotes" ? Math.max(0, confession.downvotes - 1) : confession.downvotes
+            }
+          : confession
+      ));
+      return;
+    }
 
-    setConfessions((prev) =>
-      prev.map((c) => {
-        if (c.id !== id) return c;
-        let up = c.upvotes ?? 0;
-        let down = c.downvotes ?? 0;
+    if (voteTimeouts.current[id]) {
+      clearTimeout(voteTimeouts.current[id]);
+    }
 
-       
-        if (previousVote === "up") up -= 1;
-        else if (previousVote === "down") down -= 1;
+    // Optimistic update
+    setConfessions(prev => prev.map(confession => {
+      if (confession.id !== id) return confession;
 
-     
-        if (type === "upvotes") up += 1;
-        else down += 1;
+      let newUpvotes = confession.upvotes;
+      let newDownvotes = confession.downvotes;
 
-        return { ...c, upvotes: up, downvotes: down };
-      })
-    );
+      // Remove previous vote if exists
+      if (previousVote === "up") newUpvotes = Math.max(0, newUpvotes - 1);
+      if (previousVote === "down") newDownvotes = Math.max(0, newDownvotes - 1);
 
-   
-    votes[id] = type === "upvotes" ? "up" : "down";
+      // Add new vote
+      if (type === "upvotes") newUpvotes += 1;
+      else newDownvotes += 1;
+
+      return { ...confession, upvotes: newUpvotes, downvotes: newDownvotes };
+    }));
+
+    const newVote = type === "upvotes" ? "up" : "down";
+    votes[id] = newVote;
     await setItem(VOTE_KEY, votes);
 
-    
-    if (voteTimeouts.current[id]) clearTimeout(voteTimeouts.current[id]);
     voteTimeouts.current[id] = setTimeout(async () => {
-      const target = confessions.find((c) => c.id === id);
-      if (!target) return;
+      try {
+        const currentConfession = confessions.find(c => c.id === id);
+        if (!currentConfession) return;
 
-      const { data, error } = await supabase
-        .from("confessions")
-        .update({ upvotes: target.upvotes, downvotes: target.downvotes })
-        .eq("id", id)
-        .select();
+        let upvotes = currentConfession.upvotes;
+        let downvotes = currentConfession.downvotes;
 
-      if (error) setError(error.message);
-      else if (data)
-        setConfessions((prev) =>
-          prev.map((c) => (c.id === id ? (data[0] as Confession) : c))
-        );
-    }, 200);
+        // Remove previous vote
+        if (previousVote === "up") upvotes = Math.max(0, upvotes - 1);
+        if (previousVote === "down") downvotes = Math.max(0, downvotes - 1);
+
+        // Add new vote
+        if (type === "upvotes") upvotes += 1;
+        else downvotes += 1;
+
+        // Update in Supabase
+        const { error } = await supabase
+          .from("confessions")
+          .update({ upvotes, downvotes })
+          .eq("id", id);
+
+        if (error) {
+          console.error("Failed to update vote:", error);
+          // Revert optimistic update on error
+          setConfessions(prev => prev.map(confession => 
+            confession.id === id 
+              ? { ...confession, upvotes: currentConfession.upvotes, downvotes: currentConfession.downvotes }
+              : confession
+          ));
+          
+          // Revert vote in storage
+          if (previousVote) {
+            votes[id] = previousVote;
+          } else {
+            delete votes[id];
+          }
+          await setItem(VOTE_KEY, votes);
+        } else {
+          // Refresh to ensure sync with server
+          fetchConfessions();
+        }
+      } catch (err) {
+        console.error("Vote error:", err);
+      } finally {
+        delete voteTimeouts.current[id];
+      }
+    }, 500);
+  };
+
+  const getUserVote = async (id: string): Promise<"up" | "down" | null> => {
+    const votes = await getItem<Record<string, "up" | "down">>(VOTE_KEY);
+    return votes?.[id] || null;
   };
 
   return {
@@ -161,6 +195,7 @@ export function useConfessions() {
     submitConfession,
     upvoteConfession: (id: string) => handleVote(id, "upvotes"),
     downvoteConfession: (id: string) => handleVote(id, "downvotes"),
+    getUserVote,
     refresh: fetchConfessions,
   };
 }
