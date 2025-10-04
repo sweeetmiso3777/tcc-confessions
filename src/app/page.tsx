@@ -6,11 +6,12 @@ import { Virtuoso } from "react-virtuoso";
 import { useConfessionsContext } from "@/providers/confessions-provider";
 import { ConfessionCard } from "@/components/confession-card";
 import ConfessionForm from "@/components/confession-form";
-import DotGrid from "@/components/DotGrid";
+import { FlickeringGrid } from "@/components/flickering-grid";
 
 export default function Home() {
   const { confessions, loading } = useConfessionsContext();
   const [showForm, setShowForm] = useState(false);
+
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => {
@@ -30,18 +31,15 @@ export default function Home() {
 
   return (
     <div className="font-sans min-h-screen flex flex-col items-center relative">
-      {/* DotGrid Background with better colors */}
+      {/* FlickeringGrid Background */}
       <div className="fixed inset-0 -z-10 h-screen w-full">
-        <DotGrid
-          dotSize={8}
-          gap={20}
-          baseColor="#8B5CF6" // Purple
-          activeColor="#EC4899" // Pink
-          proximity={150}
-          shockRadius={300}
-          shockStrength={3}
-          resistance={800}
-          returnDuration={2}
+        <FlickeringGrid
+          className="absolute inset-0 size-full"
+          squareSize={4}
+          gridGap={6}
+          color="#6B7280"
+          maxOpacity={0.35}
+          flickerChance={0.12}
         />
         {/* Overlay to soften the background */}
         <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-purple-50/40 backdrop-blur-[1px]" />
