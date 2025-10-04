@@ -45,13 +45,13 @@ export function ConfessionCard({
   return (
     <motion.div
       initial={{ opacity: 0, x: -50, scale: 0.9 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
+      animate={{ opacity: 1, x: 0, scale: 1.01 }}
       transition={{
-        duration: 0.6,
+        duration: 0.3,
         ease: [0.25, 0.46, 0.45, 0.94],
         delay: index * 0.1,
       }}
-      whileHover={{ scale: 1.02, y: -2 }}
+      whileHover={{ scale: 1.01, y: -2 }}
       className="p-6 bg-white/20 backdrop-blur-sm border-4 border-black rounded-lg shadow-[6px_6px_0_0_rgba(0,0,0,1)] flex flex-col gap-3"
     >
       <h2 className="text-xl sm:text-2xl font-bold text-gray-900">{title}</h2>

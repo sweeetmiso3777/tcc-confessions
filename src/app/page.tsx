@@ -112,11 +112,9 @@ export default function Home() {
 function Footer() {
   return (
     <footer className="mt-12 text-center text-sm text-gray-700 bg-white/70 backdrop-blur-sm border-4 border-black rounded-lg px-6 py-4 shadow-[4px_4px_0_0_rgba(0,0,0,1)]">
-      Created with{" "}
-      <span className="font-semibold text-purple-600">Next.js</span> +{" "}
-      <span className="font-semibold text-green-600">Netlify</span> +{" "}
-      <span className="font-semibold text-emerald-600">Supabase</span> — By{" "}
-      <span className="font-semibold text-pink-600">Sweeetmiso3777</span>
+      Created with <span className="font-semibold text-green-600">Netlify</span>{" "}
+      + <span className="font-semibold text-emerald-600">Supabase</span> — By{" "}
+      <span className="font-semibold text-pink-600">---redacted :3</span>
     </footer>
   );
 }
